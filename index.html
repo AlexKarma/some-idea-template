@@ -3,766 +3,701 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>原材料智能监控系统 // CORE_V4</title>
+    <title>CORE_SYSTEM // V5.0_SINGULARITY</title>
     <style>
         :root {
-            --bg-dark: #02060c;
-            --card-glass: rgba(13, 25, 40, 0.75);
+            --bg-deep: #000000;
             --neon-cyan: #00f3ff;
-            --neon-blue: #0066ff;
-            --neon-purple: #bc13fe;
-            --neon-red: #ff003c;
+            --neon-pink: #ff00ff;
             --neon-green: #0aff0a;
-            --text-main: #e0e6ed;
-            --text-muted: #6b7c93;
-            --border-light: rgba(0, 243, 255, 0.15);
+            --glass: rgba(255, 255, 255, 0.03);
+            --border: rgba(0, 243, 255, 0.3);
         }
 
         body {
-            background-color: var(--bg-dark);
-            color: var(--text-main);
-            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
             margin: 0;
-            padding: 20px;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+            padding: 0;
+            background-color: var(--bg-deep);
+            color: #fff;
+            font-family: 'Courier New', 'Microsoft YaHei', monospace; /* 黑客风格字体 */
             overflow-x: hidden;
-            
-            /* 动态矩阵背景 */
-            background-image: 
-                linear-gradient(rgba(0, 243, 255, 0.02) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0, 243, 255, 0.02) 1px, transparent 1px),
-                radial-gradient(circle at 50% 0%, rgba(0, 102, 255, 0.1), transparent 80%);
-            background-size: 60px 60px, 60px 60px, 100% 100%;
+            min-height: 100vh;
+            cursor: crosshair; /* 战术准星光标 */
         }
 
-        /* 滚动条美化 */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #02060c; }
-        ::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--neon-cyan); }
+        /* === 1. Canvas 背景 === */
+        #bg-canvas {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: -1;
+        }
 
+        /* === 2. 启动遮罩 Boot Screen === */
+        #boot-screen {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #000;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.5s;
+        }
+        .boot-loader {
+            width: 300px;
+            height: 4px;
+            background: #111;
+            margin: 20px 0;
+            position: relative;
+            overflow: hidden;
+        }
+        .boot-bar {
+            width: 0%;
+            height: 100%;
+            background: var(--neon-cyan);
+            box-shadow: 0 0 20px var(--neon-cyan);
+            transition: width 0.1s;
+        }
+        .boot-text {
+            color: var(--neon-cyan);
+            font-size: 0.8rem;
+            text-shadow: 0 0 5px var(--neon-cyan);
+        }
+        .boot-log {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            font-size: 0.7rem;
+            color: #444;
+            height: 100px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column-reverse;
+        }
+
+        /* === 3. 主界面布局 === */
         header {
             text-align: center;
-            margin-bottom: 50px;
+            padding: 40px 20px;
+            position: relative;
+            z-index: 10;
+            pointer-events: none; /* 让鼠标能穿透头部影响粒子 */
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 10px;
+            color: transparent;
+            -webkit-text-stroke: 1px var(--neon-cyan);
+            text-shadow: 0 0 20px var(--neon-cyan);
+            position: relative;
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+            gap: 40px;
+            padding: 20px 40px 100px 40px;
+            max-width: 1400px;
+            margin: 0 auto;
             position: relative;
             z-index: 10;
         }
 
-        h1 {
-            font-weight: 800;
-            letter-spacing: 6px;
-            font-size: 2.2rem;
-            color: #fff;
-            text-shadow: 0 0 20px rgba(0, 243, 255, 0.5);
-            margin: 0;
-            text-transform: uppercase;
-        }
-
-        .subtitle {
-            font-size: 0.75rem;
-            color: var(--neon-cyan);
-            letter-spacing: 3px;
-            margin-top: 10px;
-            opacity: 0.7;
-        }
-
-        /* 布局 */
-        .dashboard {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-            gap: 30px;
-            width: 100%;
-            max-width: 1200px;
-            padding-bottom: 100px;
-        }
-
-        /* 卡片主体 */
+        /* === 4. 全息卡片 Hologram Card === */
         .card {
-            background: var(--card-glass);
-            backdrop-filter: blur(12px);
-            border: 1px solid var(--border-light);
-            border-radius: 4px;
-            padding: 25px;
+            background: var(--glass);
+            border: 1px solid var(--border);
+            padding: 30px;
             position: relative;
-            transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            overflow: hidden;
+            backdrop-filter: blur(4px);
+            transition: transform 0.1s; /* 极快响应配合JS */
+            transform-style: preserve-3d;
+            /* 科幻切角 */
+            clip-path: polygon(
+                20px 0, 100% 0, 
+                100% calc(100% - 20px), calc(100% - 20px) 100%, 
+                0 100%, 0 20px
+            );
         }
 
+        /* 扫描线光波动画 */
+        .card::after {
+            content: '';
+            position: absolute;
+            top: -100%; left: 0; width: 100%; height: 50%;
+            background: linear-gradient(to bottom, transparent, rgba(0, 243, 255, 0.2), transparent);
+            animation: scanline 4s infinite linear;
+            pointer-events: none;
+        }
+        @keyframes scanline {
+            0% { top: -50%; }
+            100% { top: 150%; }
+        }
+
+        /* 悬停高亮 */
         .card:hover {
-            transform: translateY(-5px);
             border-color: var(--neon-cyan);
-            box-shadow: 0 15px 40px rgba(0, 243, 255, 0.1);
+            box-shadow: 0 0 30px rgba(0, 243, 255, 0.15);
+        }
+        .card:hover::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at var(--mouse-x) var(--mouse-y), rgba(0, 243, 255, 0.1), transparent 150px);
+            z-index: -1;
         }
 
-        /* 装饰性边角 */
-        .card::before, .card::after {
-            content: ''; position: absolute; width: 10px; height: 10px; transition: all 0.3s;
-        }
-        .card::before { top: 0; left: 0; border-top: 2px solid var(--neon-cyan); border-left: 2px solid var(--neon-cyan); }
-        .card::after { bottom: 0; right: 0; border-bottom: 2px solid var(--neon-cyan); border-right: 2px solid var(--neon-cyan); }
-
-        .card-header {
+        /* 卡片内容 */
+        .item-header {
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
             margin-bottom: 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 10px;
         }
-
-        .info-block h3 {
-            margin: 0;
-            font-size: 1.25rem;
-            font-weight: 600;
+        .item-name { font-size: 1.4rem; font-weight: bold; color: #fff; text-shadow: 0 0 10px rgba(255,255,255,0.5); }
+        .item-cat { color: var(--neon-cyan); border: 1px solid var(--neon-cyan); padding: 2px 8px; font-size: 0.7rem; }
+        
+        .price-display {
+            font-size: 4rem;
+            font-weight: 100;
             color: #fff;
-            letter-spacing: 1px;
-        }
-
-        .badge {
-            font-size: 0.7rem;
-            padding: 3px 8px;
-            background: rgba(0, 243, 255, 0.1);
-            color: var(--neon-cyan);
-            border: 1px solid var(--border-light);
-            border-radius: 2px;
-            margin-top: 6px;
-            display: inline-block;
-            text-transform: uppercase;
-        }
-
-        /* 设置按钮 */
-        .btn-settings {
-            background: transparent;
-            border: none;
-            color: var(--text-muted);
-            font-size: 1.2rem;
-            cursor: pointer;
-            transition: color 0.3s, transform 0.3s;
-            padding: 0;
-        }
-        .btn-settings:hover {
-            color: var(--neon-cyan);
-            transform: rotate(90deg);
-        }
-
-        /* 价格展示 */
-        .price-section {
+            text-shadow: 0 0 20px var(--neon-cyan);
+            margin: 20px 0;
+            font-family: 'Impact', sans-serif; /* 硬朗字体 */
             display: flex;
             align-items: baseline;
-            margin: 20px 0;
-            position: relative;
         }
+        .currency { font-size: 1.5rem; color: #555; margin-right: 10px; font-family: monospace; }
 
-        .currency-symbol {
-            font-size: 1.5rem;
-            color: var(--text-muted);
-            margin-right: 5px;
-        }
-
-        .main-price {
-            font-size: 3.5rem;
-            font-weight: 200;
-            color: #fff;
-            text-shadow: 0 0 15px var(--neon-blue);
-            line-height: 1;
-        }
-
-        /* 历史概览 */
-        .mini-history {
+        /* 历史条 */
+        .history-track {
             display: flex;
             justify-content: space-between;
-            border-top: 1px solid rgba(255,255,255,0.05);
-            padding-top: 15px;
             margin-top: 20px;
-            cursor: pointer; /* 提示可点击 */
-        }
-        
-        .mini-history:hover .history-label {
-            color: var(--neon-cyan);
-        }
-
-        .history-col {
-            text-align: center;
-        }
-        
-        .history-label {
-            font-size: 0.65rem;
-            color: var(--text-muted);
-            margin-bottom: 5px;
-            transition: 0.3s;
-        }
-        
-        .history-val {
-            font-size: 0.9rem;
-            color: var(--text-main);
-            font-family: 'Consolas', monospace;
-        }
-
-        /* 底部操作栏 */
-        .card-actions {
-            margin-top: 25px;
-            display: flex;
-            gap: 10px;
-        }
-
-        .btn-action {
-            flex: 1;
-            padding: 10px;
-            background: rgba(255,255,255,0.03);
-            border: 1px solid var(--border-light);
-            color: var(--neon-cyan);
-            cursor: pointer;
             font-size: 0.8rem;
-            transition: all 0.2s;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+            color: #888;
         }
+        .h-item { text-align: center; cursor: pointer; transition: 0.3s; }
+        .h-item:hover { color: var(--neon-cyan); text-shadow: 0 0 8px var(--neon-cyan); }
+        .h-val { font-size: 1.1rem; color: #eee; font-family: monospace; }
 
-        .btn-action:hover {
-            background: var(--neon-cyan);
-            color: #000;
-            box-shadow: 0 0 15px var(--neon-cyan);
-        }
-
-        .btn-history {
+        /* 按钮组 */
+        .actions { display: flex; gap: 10px; margin-top: 25px; }
+        button {
             flex: 1;
-            border-color: var(--text-muted);
-            color: var(--text-muted);
-        }
-        .btn-history:hover {
-            border-color: #fff;
-            color: #fff;
-            background: rgba(255,255,255,0.1);
-            box-shadow: none;
-        }
-
-        /* 全局添加按钮 */
-        .fab-add {
-            position: fixed;
-            bottom: 30px;
-            right: 30px;
-            width: 60px;
-            height: 60px;
-            background: var(--bg-dark);
-            border: 2px solid var(--neon-cyan);
-            border-radius: 50%;
-            color: var(--neon-cyan);
-            font-size: 2rem;
-            cursor: pointer;
-            box-shadow: 0 0 20px rgba(0, 243, 255, 0.2);
-            z-index: 50;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            transition: 0.3s;
-        }
-        .fab-add:hover {
-            background: var(--neon-cyan);
-            color: #000;
-            transform: scale(1.1) rotate(90deg);
-        }
-
-        /* ----- 通用模态框 ----- */
-        .modal-overlay {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85);
-            backdrop-filter: blur(5px);
-            z-index: 100;
-            display: none;
-            justify-content: center;
-            align-items: center;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-
-        .modal-overlay.active {
-            opacity: 1;
-        }
-
-        .modal-box {
-            background: #0b1320;
-            border: 1px solid var(--neon-cyan);
-            width: 90%;
-            max-width: 500px;
-            padding: 30px;
-            box-shadow: 0 0 50px rgba(0, 243, 255, 0.15);
-            transform: scale(0.9);
-            transition: transform 0.3s;
-            position: relative;
-        }
-        
-        .modal-large {
-            max-width: 800px; /* 历史记录表格更宽 */
-        }
-
-        .modal-overlay.active .modal-box {
-            transform: scale(1);
-        }
-
-        .modal-header {
-            margin-bottom: 25px;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            padding-bottom: 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .modal-title {
-            color: #fff;
-            margin: 0;
-            font-weight: 300;
-            letter-spacing: 2px;
-        }
-
-        .input-field {
-            width: 100%;
-            background: rgba(0,0,0,0.3);
-            border: 1px solid #334155;
             padding: 12px;
-            color: #fff;
-            margin-bottom: 20px;
-            font-family: inherit;
-            box-sizing: border-box;
-            outline: none;
-        }
-        .input-field:focus {
-            border-color: var(--neon-cyan);
-            background: rgba(0, 243, 255, 0.05);
-        }
-        
-        .input-label {
+            background: rgba(0,0,0,0.5);
+            border: 1px solid var(--neon-cyan);
             color: var(--neon-cyan);
-            font-size: 0.8rem;
-            margin-bottom: 8px;
-            display: block;
-        }
-
-        /* 历史记录表格 */
-        .history-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-        }
-        
-        .history-table th {
-            text-align: left;
-            color: var(--text-muted);
-            font-size: 0.8rem;
-            border-bottom: 1px solid var(--neon-blue);
-            padding: 10px;
-        }
-        
-        .history-table td {
-            padding: 12px 10px;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-            color: var(--text-main);
-            font-size: 0.9rem;
-        }
-
-        .history-table tr:hover {
-            background: rgba(0, 243, 255, 0.05);
-        }
-
-        .action-icon {
+            font-family: inherit;
+            text-transform: uppercase;
+            letter-spacing: 2px;
             cursor: pointer;
-            margin-left: 10px;
-            font-size: 1rem;
-            opacity: 0.6;
-            transition: 0.2s;
+            position: relative;
+            overflow: hidden;
+            transition: 0.3s;
         }
-        .action-icon:hover { opacity: 1; }
-        .icon-edit { color: var(--neon-cyan); }
-        .icon-del { color: var(--neon-red); }
+        button:hover {
+            background: var(--neon-cyan);
+            color: #000;
+            box-shadow: 0 0 20px var(--neon-cyan);
+        }
+        /* 红色删除按钮特殊样式 */
+        .btn-del { border-color: var(--neon-pink); color: var(--neon-pink); flex: 0.4;}
+        .btn-del:hover { background: var(--neon-pink); color: #fff; box-shadow: 0 0 20px var(--neon-pink); }
 
-        .modal-footer {
-            margin-top: 25px;
+        /* === 5. 悬浮添加按钮 (FAB) === */
+        .fab {
+            position: fixed;
+            bottom: 40px; right: 40px;
+            width: 70px; height: 70px;
+            background: #000;
+            border: 2px solid var(--neon-green);
+            border-radius: 50%;
+            color: var(--neon-green);
+            font-size: 30px;
             display: flex;
-            justify-content: flex-end;
-            gap: 15px;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            box-shadow: 0 0 20px var(--neon-green);
+            z-index: 100;
+            transition: 0.3s;
+        }
+        .fab:hover { transform: rotate(90deg) scale(1.1); background: var(--neon-green); color: #000; }
+
+        /* === 6. 模态框 === */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 200;
+            display: none; justify-content: center; align-items: center;
+            backdrop-filter: blur(10px);
+        }
+        .modal-box {
+            background: #000;
+            border: 1px solid var(--neon-cyan);
+            width: 90%; max-width: 500px;
+            padding: 40px;
+            position: relative;
+            box-shadow: 0 0 100px rgba(0, 243, 255, 0.2);
+        }
+        /* 模态框装饰角标 */
+        .modal-box::before { content: ''; position: absolute; top: -5px; left: -5px; width: 20px; height: 20px; border-top: 3px solid var(--neon-cyan); border-left: 3px solid var(--neon-cyan); }
+        .modal-box::after { content: ''; position: absolute; bottom: -5px; right: -5px; width: 20px; height: 20px; border-bottom: 3px solid var(--neon-cyan); border-right: 3px solid var(--neon-cyan); }
+
+        .inp {
+            width: 100%; background: #111; border: none; border-bottom: 2px solid #333;
+            color: #fff; padding: 15px; margin-bottom: 20px; font-family: inherit; font-size: 1.1rem; outline: none; transition: 0.3s;
+        }
+        .inp:focus { border-color: var(--neon-cyan); background: #081a1c; }
+        
+        /* 历史表格 */
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th { text-align: left; color: #555; font-size: 0.8rem; border-bottom: 1px solid #333; padding: 10px; }
+        td { padding: 15px 10px; border-bottom: 1px solid #111; }
+        tr:hover { background: rgba(0, 243, 255, 0.05); }
+
+        /* 点击波纹特效 */
+        .ripple {
+            position: fixed;
+            border-radius: 50%;
+            transform: scale(0);
+            animation: ripple-anim 0.6s linear;
+            background: rgba(0, 243, 255, 0.4);
+            pointer-events: none;
+            z-index: 9999;
+        }
+        @keyframes ripple-anim {
+            to { transform: scale(4); opacity: 0; }
         }
 
     </style>
 </head>
 <body>
 
-    <header>
-        <h1>原材料智能监控系统</h1>
-        <div class="subtitle">CORE_SYSTEM // V4.0 // FULL_ACCESS</div>
-    </header>
+    <canvas id="bg-canvas"></canvas>
 
-    <div class="dashboard" id="dashboard">
+    <div id="boot-screen">
+        <h2 class="boot-text" id="boot-status">SYSTEM INITIALIZING...</h2>
+        <div class="boot-loader">
+            <div class="boot-bar" id="boot-bar"></div>
         </div>
-
-    <button class="fab-add" onclick="openInitModal()" title="新增品类">+</button>
-
-
-    <div class="modal-overlay" id="form-modal">
-        <div class="modal-box">
-            <div class="modal-header">
-                <h2 class="modal-title" id="form-title">DATA_ENTRY</h2>
-                <span style="cursor:pointer; color:#555;" onclick="closeFormModal()">✕</span>
-            </div>
-            <div id="form-content">
-                </div>
-            <div class="modal-footer">
-                <button class="btn-action btn-history" onclick="closeFormModal()">取消</button>
-                <button class="btn-action" onclick="submitForm()">确认执行</button>
-            </div>
-        </div>
+        <div class="boot-log" id="boot-log"></div>
     </div>
 
+    <header>
+        <h1 class="scramble-text" data-text="原材料智能监控终端">原材料智能监控终端</h1>
+        <div style="color:var(--neon-cyan); margin-top:10px; font-size:0.8rem;">ACCESS LEVEL: ADMIN // V5.0 SINGULARITY</div>
+    </header>
 
-    <div class="modal-overlay" id="history-modal">
-        <div class="modal-box modal-large">
-            <div class="modal-header">
-                <h2 class="modal-title">历史数据溯源 / HISTORY LOG</h2>
-                <span style="cursor:pointer; color:#555;" onclick="closeHistoryModal()">✕</span>
+    <div class="dashboard" id="dashboard"></div>
+
+    <div class="fab" onclick="openInitModal()">+</div>
+
+    <div class="modal-overlay" id="modal">
+        <div class="modal-box" id="modal-content">
             </div>
-            <div style="max-height: 400px; overflow-y: auto;">
-                <table class="history-table">
-                    <thead>
-                        <tr>
-                            <th>记录时间 (DATE)</th>
-                            <th>价格 (VALUE)</th>
-                            <th style="text-align:right;">操作 (OP)</th>
-                        </tr>
-                    </thead>
-                    <tbody id="history-list">
-                        </tbody>
-                </table>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-action btn-history" onclick="closeHistoryModal()">关闭</button>
-            </div>
-        </div>
     </div>
 
     <script>
-        // --- 1. 数据模型 Data Model (V4 Upgrade) ---
-        // history 现在存储对象: { id, price, date }
-        // 初始数据模拟
+        // === PART 1: 视觉特效引擎 (Visual Effects Engine) ===
+
+        // 1.1 Canvas 粒子网络
+        const canvas = document.getElementById('bg-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        class Particle {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.vx = (Math.random() - 0.5) * 0.5; // 速度
+                this.vy = (Math.random() - 0.5) * 0.5;
+                this.size = Math.random() * 2;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                if(this.x < 0 || this.x > canvas.width) this.vx *= -1;
+                if(this.y < 0 || this.y > canvas.height) this.vy *= -1;
+            }
+            draw() {
+                ctx.fillStyle = 'rgba(0, 243, 255, 0.5)';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // 初始化粒子
+        for(let i=0; i<80; i++) particles.push(new Particle());
+
+        function animateParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach((p, index) => {
+                p.update();
+                p.draw();
+                // 连线
+                for(let j = index + 1; j < particles.length; j++) {
+                    const p2 = particles[j];
+                    const dist = Math.hypot(p.x - p2.x, p.y - p2.y);
+                    if(dist < 150) {
+                        ctx.strokeStyle = `rgba(0, 243, 255, ${1 - dist/150})`;
+                        ctx.lineWidth = 0.5;
+                        ctx.beginPath();
+                        ctx.moveTo(p.x, p.y);
+                        ctx.lineTo(p2.x, p2.y);
+                        ctx.stroke();
+                    }
+                }
+            });
+            requestAnimationFrame(animateParticles);
+        }
+        animateParticles();
+
+        // 1.2 文本解密特效 (Text Scramble Effect)
+        function scrambleElement(el) {
+            const final = el.getAttribute('data-text') || el.innerText;
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()';
+            let iterations = 0;
+            const interval = setInterval(() => {
+                el.innerText = final.split('')
+                    .map((letter, index) => {
+                        if(index < iterations) return final[index];
+                        return chars[Math.floor(Math.random() * chars.length)]
+                    })
+                    .join('');
+                if(iterations >= final.length) clearInterval(interval);
+                iterations += 1/2; // 调整速度
+            }, 30);
+        }
+
+        // 1.3 点击波纹 (Click Ripple)
+        document.addEventListener('click', (e) => {
+            const ripple = document.createElement('div');
+            ripple.className = 'ripple';
+            ripple.style.left = e.clientX + 'px';
+            ripple.style.top = e.clientY + 'px';
+            ripple.style.width = ripple.style.height = '20px'; // 初始大小
+            document.body.appendChild(ripple);
+            setTimeout(() => ripple.remove(), 600);
+        });
+
+        // 1.4 开机序列 (Boot Sequence)
+        function runBootSequence() {
+            const bar = document.getElementById('boot-bar');
+            const screen = document.getElementById('boot-screen');
+            const log = document.getElementById('boot-log');
+            let width = 0;
+            
+            const logs = [
+                "加载核心模块...", "连接卫星节点...", "解密历史数据...", 
+                "优化视觉渲染...", "校验安全协议...", "系统上线..."
+            ];
+
+            const timer = setInterval(() => {
+                width += Math.random() * 10;
+                if(width > 100) width = 100;
+                bar.style.width = width + '%';
+                
+                if(Math.random() > 0.7) {
+                    const line = document.createElement('div');
+                    line.innerText = `> ${logs[Math.floor(Math.random()*logs.length)]} OK`;
+                    log.prepend(line);
+                }
+
+                if(width === 100) {
+                    clearInterval(timer);
+                    setTimeout(() => {
+                        screen.style.opacity = '0';
+                        setTimeout(() => { 
+                            screen.style.display = 'none'; 
+                            // 启动后触发标题解密
+                            document.querySelectorAll('.scramble-text').forEach(scrambleElement);
+                        }, 500);
+                    }, 500);
+                }
+            }, 50);
+        }
+
+        // === PART 2: 核心业务逻辑 (V4逻辑保留并增强) ===
+
         const generateId = () => '_' + Math.random().toString(36).substr(2, 9);
         const now = new Date();
-        const oneDay = 24 * 60 * 60 * 1000;
+        const oneDay = 86400000;
 
         let items = [
             {
                 id: 1,
-                name: "有机罗马生菜 (L-01)",
+                name: "有机罗马生菜",
                 category: "蔬菜",
                 history: [
-                    { id: generateId(), price: 4.50, date: new Date(now.getTime()).toISOString() },
-                    { id: generateId(), price: 4.20, date: new Date(now.getTime() - oneDay).toISOString() },
-                    { id: generateId(), price: 3.80, date: new Date(now.getTime() - oneDay*2).toISOString() }
+                    { id: generateId(), price: 4.50, date: new Date(now - 0).toISOString() },
+                    { id: generateId(), price: 4.20, date: new Date(now - oneDay).toISOString() },
+                    { id: generateId(), price: 3.80, date: new Date(now - oneDay*2).toISOString() }
                 ]
             },
             {
                 id: 2,
-                name: "富士红苹果 (Fuji-Red)",
+                name: "富士红苹果",
                 category: "鲜果",
                 history: [
-                    { id: generateId(), price: 12.80, date: new Date(now.getTime()).toISOString() },
-                    { id: generateId(), price: 13.50, date: new Date(now.getTime() - oneDay*3).toISOString() }
+                    { id: generateId(), price: 12.80, date: new Date(now - 0).toISOString() },
+                    { id: generateId(), price: 13.50, date: new Date(now - oneDay*3).toISOString() }
                 ]
             },
             {
                 id: 3,
-                name: "高筋面粉原料 (W-Base)",
+                name: "高筋面粉原料",
                 category: "原材料",
                 history: [
-                    { id: generateId(), price: 6.20, date: new Date(now.getTime()).toISOString() }
+                    { id: generateId(), price: 6.20, date: new Date(now - 0).toISOString() }
                 ]
             }
         ];
 
-        // 状态管理
-        let currentFormMode = ''; // 'add_item', 'edit_meta', 'add_price', 'edit_history_record'
-        let targetItemId = null;
-        let targetHistoryId = null;
-
-        // --- 2. 核心业务逻辑 Business Logic ---
-
-        // 排序：确保 history[0] 永远是最新的
-        function sortHistory(item) {
-            item.history.sort((a, b) => new Date(b.date) - new Date(a.date));
-        }
-
-        // 格式化时间
-        function formatDate(isoString) {
-            const d = new Date(isoString);
-            // 简单格式化 YYYY-MM-DD HH:mm
-            return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-        }
-
-        // --- 3. 渲染逻辑 Render ---
-
+        // 渲染主视图
         function render() {
             const container = document.getElementById('dashboard');
             container.innerHTML = '';
-
-            items.forEach(item => {
-                // 确保数据有序
-                sortHistory(item);
+            
+            items.forEach((item, index) => {
+                // 排序
+                item.history.sort((a, b) => new Date(b.date) - new Date(a.date));
+                const latest = item.history[0] || {price: 0};
                 
-                // 获取最新价格
-                const latest = item.history.length > 0 ? item.history[0] : { price: 0, date: new Date() };
-                const prev = item.history.length > 1 ? item.history[1] : null;
-
-                // 计算涨跌 (Visual Feedback)
-                let trendColor = '#fff';
-                if (prev) {
-                    if (latest.price > prev.price) trendColor = 'var(--neon-red)'; // 涨
-                    if (latest.price < prev.price) trendColor = 'var(--neon-green)'; // 跌
-                }
-
-                // 迷你历史 (取最近3个)
-                let miniHistoryHTML = '';
-                item.history.slice(0, 3).forEach((rec, idx) => {
-                    const label = idx === 0 ? 'Current' : `T-${idx}`;
-                    miniHistoryHTML += `
-                        <div class="history-col">
-                            <div class="history-label">${label}</div>
-                            <div class="history-val">${rec.price.toFixed(2)}</div>
-                        </div>
-                    `;
-                });
-
+                // 3D 悬浮逻辑绑定
                 const card = document.createElement('div');
                 card.className = 'card';
-                card.innerHTML = `
-                    <div class="card-header">
-                        <div class="info-block">
-                            <h3>${item.name}</h3>
-                            <span class="badge">${item.category}</span>
-                        </div>
-                        <button class="btn-settings" onclick="openMetaModal(${item.id})" title="编辑名称/分类">⚙</button>
-                    </div>
+                card.style.setProperty('--mouse-x', '0px');
+                card.style.setProperty('--mouse-y', '0px');
+                
+                // 鼠标追踪光晕
+                card.onmousemove = e => {
+                    const rect = card.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    card.style.setProperty('--mouse-x', `${x}px`);
+                    card.style.setProperty('--mouse-y', `${y}px`);
                     
-                    <div class="price-section">
-                        <span class="currency-symbol">¥</span>
-                        <span class="main-price" style="color:${trendColor}">${latest.price.toFixed(2)}</span>
-                    </div>
+                    // 3D 倾斜
+                    const cx = rect.width/2, cy = rect.height/2;
+                    const rx = -(y - cy)/20, ry = (x - cx)/20;
+                    card.style.transform = `perspective(1000px) rotateX(${rx}deg) rotateY(${ry}deg) scale(1.02)`;
+                };
+                card.onmouseleave = () => {
+                    card.style.transform = `perspective(1000px) rotateX(0) rotateY(0)`;
+                };
 
-                    <div class="mini-history" onclick="openHistoryModal(${item.id})" title="点击查看全量历史">
-                        ${miniHistoryHTML}
-                    </div>
+                // HTML 构建
+                let miniHist = '';
+                item.history.slice(0,3).forEach((h, i) => {
+                    miniHist += `<div class="h-item">
+                        <div style="font-size:0.7rem">${i===0?'NOW':'T-'+i}</div>
+                        <div class="h-val">¥${h.price.toFixed(2)}</div>
+                    </div>`;
+                });
 
-                    <div class="card-actions">
-                        <button class="btn-action" onclick="openPriceModal(${item.id})">录入新价</button>
-                        <button class="btn-action btn-history" onclick="openHistoryModal(${item.id})">历史 / 修正</button>
+                card.innerHTML = `
+                    <div class="item-header">
+                        <div>
+                            <div class="item-name scramble-text" data-text="${item.name}">${item.name}</div>
+                            <span class="item-cat">${item.category}</span>
+                        </div>
+                        <button style="flex:0; padding:5px 10px; width:auto;" onclick="openMetaModal(${item.id})">⚙</button>
+                    </div>
+                    <div class="price-display">
+                        <span class="currency">¥</span>
+                        <span class="scramble-text" data-text="${latest.price.toFixed(2)}">${latest.price.toFixed(2)}</span>
+                    </div>
+                    <div class="history-track" onclick="openHistoryList(${item.id})">
+                        ${miniHist}
+                    </div>
+                    <div class="actions">
+                        <button onclick="openPriceEntry(${item.id})">录入</button>
+                        <button onclick="openHistoryList(${item.id})">历史</button>
                     </div>
                 `;
                 container.appendChild(card);
+                
+                // 触发每个卡片的文字解密
+                setTimeout(() => {
+                    card.querySelectorAll('.scramble-text').forEach(scrambleElement);
+                }, index * 100);
             });
         }
 
-        // --- 4. 模态框交互 Interaction ---
+        // === PART 3: 模态框逻辑 ===
 
-        const formModal = document.getElementById('form-modal');
-        const formContent = document.getElementById('form-content');
-        const formTitle = document.getElementById('form-title');
+        const modal = document.getElementById('modal');
+        const modalContent = document.getElementById('modal-content');
+        let currentMode = ''; 
+        let currentId = null;
 
-        // 场景 A: 初始化新品类
-        function openInitModal() {
-            currentFormMode = 'add_item';
-            formTitle.innerText = "添加新监控项 / INIT_ITEM";
-            formContent.innerHTML = `
-                <label class="input-label">品类名称 (NAME)</label>
-                <input type="text" id="inp-name" class="input-field" placeholder="例如：冷冻牛腩">
-                <label class="input-label">所属分类 (CATEGORY)</label>
-                <input type="text" id="inp-cat" class="input-field" placeholder="例如：冻品">
-                <label class="input-label">初始价格 (PRICE)</label>
-                <input type="number" id="inp-price" class="input-field" placeholder="0.00">
-            `;
-            formModal.style.display = 'flex';
-            setTimeout(() => formModal.classList.add('active'), 10);
+        function showModal(html) {
+            modalContent.innerHTML = html + '<div style="position:absolute; top:20px; right:20px; cursor:pointer;" onclick="closeModal()">✕</div>';
+            modal.style.display = 'flex';
+        }
+        function closeModal() { modal.style.display = 'none'; }
+
+        // 3.1 录入价格
+        window.openPriceEntry = function(id) {
+            currentMode = 'price'; currentId = id;
+            const item = items.find(i => i.id === id);
+            showModal(`
+                <h3 style="color:var(--neon-cyan)">录入数据 / NEW DATA</h3>
+                <p>TARGET: ${item.name}</p>
+                <input type="number" id="inp-price" class="inp" placeholder="输入价格..." autofocus>
+                <input type="datetime-local" id="inp-date" class="inp" value="${new Date().toISOString().slice(0,16)}">
+                <button onclick="commitChange()">确认传输</button>
+            `);
         }
 
-        // 场景 B: 修改元数据 (Name/Cat)
-        function openMetaModal(id) {
-            currentFormMode = 'edit_meta';
-            targetItemId = id;
+        // 3.2 编辑元数据
+        window.openMetaModal = function(id) {
+            currentMode = 'meta'; currentId = id;
             const item = items.find(i => i.id === id);
-            
-            formTitle.innerText = "编辑基础信息 / EDIT_META";
-            formContent.innerHTML = `
-                <label class="input-label">品类名称 (NAME)</label>
-                <input type="text" id="inp-name" class="input-field" value="${item.name}">
-                <label class="input-label">所属分类 (CATEGORY)</label>
-                <input type="text" id="inp-cat" class="input-field" value="${item.category}">
-                <div style="margin-top:20px; border-top:1px solid #333; padding-top:10px;">
-                    <button onclick="deleteItemAction(${id})" style="width:100%; background:rgba(255,0,0,0.1); border:1px solid red; color:red; padding:10px; cursor:pointer;">删除此品类 (DELETE)</button>
+            showModal(`
+                <h3 style="color:var(--neon-cyan)">配置属性 / CONFIG</h3>
+                <label>名称 (ID)</label>
+                <input type="text" id="inp-name" class="inp" value="${item.name}">
+                <label>类别 (CLASS)</label>
+                <input type="text" id="inp-cat" class="inp" value="${item.category}">
+                <div style="display:flex; gap:10px;">
+                    <button onclick="commitChange()">更新协议</button>
+                    <button class="btn-del" onclick="deleteItem(${id})">删除项目</button>
                 </div>
-            `;
-            formModal.style.display = 'flex';
-            setTimeout(() => formModal.classList.add('active'), 10);
+            `);
         }
 
-        // 场景 C: 录入新价格
-        function openPriceModal(id) {
-            currentFormMode = 'add_price';
-            targetItemId = id;
+        // 3.3 初始化新项
+        window.openInitModal = function() {
+            currentMode = 'init';
+            showModal(`
+                <h3 style="color:var(--neon-green)">初始化 / INITIALIZE</h3>
+                <input type="text" id="inp-name" class="inp" placeholder="项目名称">
+                <input type="text" id="inp-cat" class="inp" placeholder="分类">
+                <input type="number" id="inp-price" class="inp" placeholder="初始价格">
+                <button onclick="commitChange()">执行创建</button>
+            `);
+        }
+
+        // 3.4 历史全量列表
+        window.openHistoryList = function(id) {
             const item = items.find(i => i.id === id);
-
-            formTitle.innerText = "录入最新价格 / NEW_ENTRY";
-            formContent.innerHTML = `
-                <p style="color:#aaa; margin-bottom:15px;">目标对象: ${item.name}</p>
-                <label class="input-label">最新价格 (PRICE)</label>
-                <input type="number" id="inp-price" class="input-field" placeholder="0.00">
-                <label class="input-label">录入时间 (DATE) - 默认当前</label>
-                <input type="datetime-local" id="inp-date" class="input-field">
-            `;
-            formModal.style.display = 'flex';
-            setTimeout(() => formModal.classList.add('active'), 10);
+            let rows = item.history.map(h => `
+                <tr>
+                    <td>${h.date.replace('T', ' ').slice(0,16)}</td>
+                    <td style="color:var(--neon-cyan)">${h.price.toFixed(2)}</td>
+                    <td>
+                        <span style="cursor:pointer; color:var(--neon-pink)" onclick="deleteHistory(${id}, '${h.id}')">[DEL]</span>
+                        <span style="cursor:pointer; color:var(--neon-cyan); margin-left:10px;" onclick="editHistory(${id}, '${h.id}')">[EDIT]</span>
+                    </td>
+                </tr>
+            `).join('');
             
-            // 默认填入当前时间
-            const nowIso = new Date().toISOString().slice(0,16);
-            document.getElementById('inp-date').value = nowIso;
-            document.getElementById('inp-price').focus();
+            showModal(`
+                <h3 style="color:var(--neon-cyan)">历史日志 / LOGS</h3>
+                <div style="max-height:400px; overflow-y:auto">
+                    <table>${rows}</table>
+                </div>
+            `);
         }
 
-        // 场景 D: 修改历史记录
-        function openEditHistoryRecord(itemId, historyId) {
-            closeHistoryModal(); // 关掉大列表，开小窗口
-            currentFormMode = 'edit_history_record';
-            targetItemId = itemId;
-            targetHistoryId = historyId;
-            
+        // 3.5 编辑单条历史
+        window.editHistory = function(itemId, recId) {
+            currentMode = 'edit_hist'; currentId = itemId;
             const item = items.find(i => i.id === itemId);
-            const record = item.history.find(h => h.id === historyId);
-
-            formTitle.innerText = "修正历史记录 / FIX_RECORD";
+            const rec = item.history.find(r => r.id === recId);
+            // 临时存一下 recId
+            modal.dataset.tempRecId = recId;
             
-            // 转换时间格式给 input 使用
-            const dateVal = new Date(record.date).toISOString().slice(0,16);
-
-            formContent.innerHTML = `
-                <label class="input-label">修正价格 (PRICE)</label>
-                <input type="number" id="inp-price" class="input-field" value="${record.price}">
-                <label class="input-label">修正时间 (DATE)</label>
-                <input type="datetime-local" id="inp-date" class="input-field" value="${dateVal}">
-            `;
-            formModal.style.display = 'flex';
-            setTimeout(() => formModal.classList.add('active'), 10);
+            showModal(`
+                <h3 style="color:var(--neon-cyan)">修正记录 / FIX</h3>
+                <input type="number" id="inp-price" class="inp" value="${rec.price}">
+                <input type="datetime-local" id="inp-date" class="inp" value="${rec.date.slice(0,16)}">
+                <button onclick="commitChange()">覆盖记录</button>
+            `);
         }
 
-        // --- 5. 提交逻辑 Submit Router ---
+        // === PART 4: 提交处理 ===
 
-        function submitForm() {
-            if (currentFormMode === 'add_item') {
-                const name = document.getElementById('inp-name').value;
-                const cat = document.getElementById('inp-cat').value;
-                const price = parseFloat(document.getElementById('inp-price').value);
-                if(!name || isNaN(price)) return alert("信息不完整");
-
-                items.push({
-                    id: Date.now(),
-                    name: name,
-                    category: cat || "自定义",
-                    history: [{ id: generateId(), price: price, date: new Date().toISOString() }]
+        window.commitChange = function() {
+            if(currentMode === 'price') {
+                const p = parseFloat(document.getElementById('inp-price').value);
+                const d = document.getElementById('inp-date').value;
+                if(isNaN(p)) return;
+                items.find(i=>i.id===currentId).history.unshift({
+                    id: generateId(), price: p, date: new Date(d).toISOString()
                 });
-
-            } else if (currentFormMode === 'edit_meta') {
-                const name = document.getElementById('inp-name').value;
-                const cat = document.getElementById('inp-cat').value;
-                const item = items.find(i => i.id === targetItemId);
-                if (item) {
-                    item.name = name;
-                    item.category = cat;
-                }
-
-            } else if (currentFormMode === 'add_price') {
-                const price = parseFloat(document.getElementById('inp-price').value);
-                const dateStr = document.getElementById('inp-date').value;
-                if(isNaN(price)) return alert("价格无效");
-
-                const item = items.find(i => i.id === targetItemId);
-                if (item) {
-                    item.history.unshift({
-                        id: generateId(),
-                        price: price,
-                        date: new Date(dateStr).toISOString()
-                    });
-                }
-
-            } else if (currentFormMode === 'edit_history_record') {
-                const price = parseFloat(document.getElementById('inp-price').value);
-                const dateStr = document.getElementById('inp-date').value;
-                const item = items.find(i => i.id === targetItemId);
-                const record = item.history.find(h => h.id === targetHistoryId);
-                
-                if (record) {
-                    record.price = price;
-                    record.date = new Date(dateStr).toISOString();
-                }
-                // 修正完打开回历史列表？ 或者直接回主页。回主页简单点。
+            }
+            else if(currentMode === 'meta') {
+                const item = items.find(i=>i.id===currentId);
+                item.name = document.getElementById('inp-name').value;
+                item.category = document.getElementById('inp-cat').value;
+            }
+            else if(currentMode === 'init') {
+                const n = document.getElementById('inp-name').value;
+                const c = document.getElementById('inp-cat').value;
+                const p = parseFloat(document.getElementById('inp-price').value);
+                if(!n || isNaN(p)) return;
+                items.push({
+                    id: Date.now(), name: n, category: c||'DEF', 
+                    history: [{id:generateId(), price:p, date:new Date().toISOString()}]
+                });
+            }
+            else if(currentMode === 'edit_hist') {
+                const item = items.find(i=>i.id===currentId);
+                const rec = item.history.find(r => r.id === modal.dataset.tempRecId);
+                rec.price = parseFloat(document.getElementById('inp-price').value);
+                rec.date = new Date(document.getElementById('inp-date').value).toISOString();
+                // 返回历史列表
+                closeModal();
+                openHistoryList(currentId);
+                render();
+                return;
             }
 
-            closeFormModal();
+            closeModal();
             render();
         }
 
-        function deleteItemAction(id) {
-            if(confirm("确定彻底删除该品类吗？所有历史数据将丢失。")) {
-                items = items.filter(i => i.id !== id);
-                closeFormModal();
+        window.deleteItem = function(id) {
+            if(confirm('CONFIRM DELETION?')) {
+                items = items.filter(i=>i.id!==id);
+                closeModal();
                 render();
             }
         }
 
-        function closeFormModal() {
-            formModal.classList.remove('active');
-            setTimeout(() => formModal.style.display = 'none', 300);
+        window.deleteHistory = function(itemId, recId) {
+            if(confirm('ERASE RECORD?')) {
+                const item = items.find(i=>i.id===itemId);
+                item.history = item.history.filter(h=>h.id!==recId);
+                openHistoryList(itemId); // 刷新列表
+                render(); // 刷新背景
+            }
         }
 
-        // --- 6. 历史列表管理 History Manager ---
-
-        const historyModal = document.getElementById('history-modal');
-        const historyList = document.getElementById('history-list');
-
-        function openHistoryModal(itemId) {
-            targetItemId = itemId;
-            const item = items.find(i => i.id === itemId);
-            sortHistory(item); // 确保打开前是有序的
-
-            historyList.innerHTML = '';
-            item.history.forEach(rec => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${formatDate(rec.date)}</td>
-                    <td style="color:var(--neon-cyan); font-weight:bold;">¥${rec.price.toFixed(2)}</td>
-                    <td style="text-align:right;">
-                        <span class="action-icon icon-edit" onclick="openEditHistoryRecord(${itemId}, '${rec.id}')">✎</span>
-                        <span class="action-icon icon-del" onclick="deleteHistoryRecord(${itemId}, '${rec.id}')">✕</span>
-                    </td>
-                `;
-                historyList.appendChild(tr);
-            });
-
-            historyModal.style.display = 'flex';
-            setTimeout(() => historyModal.classList.add('active'), 10);
+        // === 启动系统 ===
+        window.onload = function() {
+            runBootSequence();
+            render();
         }
-
-        function deleteHistoryRecord(itemId, recordId) {
-            if(!confirm("删除这条历史记录？")) return;
-            const item = items.find(i => i.id === itemId);
-            item.history = item.history.filter(h => h.id !== recordId);
-            // 重新渲染列表
-            openHistoryModal(itemId);
-            render(); // 更新背景主页
-        }
-
-        function closeHistoryModal() {
-            historyModal.classList.remove('active');
-            setTimeout(() => historyModal.style.display = 'none', 300);
-        }
-
-        // 初始化
-        window.onload = render;
 
     </script>
 </body>
